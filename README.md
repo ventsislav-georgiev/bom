@@ -48,4 +48,4 @@ img, err := b.Image("AppIcon")
 * <https://github.com/hogliux/bomutils>
 * <http://lingyuncxb.com/2019/04/14/HumbleAssetCatalog/>
 * <https://github.com/lzfse/lzfse>
-* <https://github.com/iineva/go-lzfse>
+* <https://github.com/blacktop/lzfse-cgo>

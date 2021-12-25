@@ -114,17 +114,17 @@ func (a *asset) ExtendedMetadata() (*CarextendedMetadata, error) {
 
 func (a *asset) AppearanceKeys() (map[string]uint16, error) {
 	keys := map[string]uint16{}
-	if err := a.bom.ReadTree("APPEARANCEKEYS", func(k io.Reader, d io.Reader) error {
+	if err := a.bom.ReadTree("APPEARANCEKEYS", func(k io.Reader, d io.Reader) (bool, error) {
 		value := uint16(0)
 		if err := binary.Read(d, binary.BigEndian, &value); err != nil {
-			return err
+			return false, err
 		}
 		key, err := ioutil.ReadAll(k)
 		if err != nil {
-			return err
+			return false, err
 		}
 		keys[string(key)] = value
-		return nil
+		return false, nil
 	}); err != nil {
 		return nil, err
 	}
@@ -133,30 +133,30 @@ func (a *asset) AppearanceKeys() (map[string]uint16, error) {
 
 func (a *asset) FacetKeys() (map[string]RenditionAttrs, error) {
 	data := map[string]RenditionAttrs{}
-	if err := a.bom.ReadTree("FACETKEYS", func(k io.Reader, d io.Reader) error {
+	if err := a.bom.ReadTree("FACETKEYS", func(k io.Reader, d io.Reader) (bool, error) {
 		attrs := map[RenditionAttributeType]uint16hex{}
 		t := &Renditionkeytoken{}
 		if err := binary.Read(d, binary.LittleEndian, &t.CursorHotSpot); err != nil {
-			return err
+			return false, err
 		}
 		if err := binary.Read(d, binary.LittleEndian, &t.NumberOfAttributes); err != nil {
-			return err
+			return false, err
 		}
 		t.Attributes = make([]RenditionAttribute, t.NumberOfAttributes)
 		for i := uint16(0); i < t.NumberOfAttributes; i++ {
 			a := RenditionAttribute{}
 			if err := binary.Read(d, binary.LittleEndian, &a); err != nil {
-				return err
+				return false, err
 			}
 			t.Attributes[i] = a
 			attrs[RenditionAttributeType(a.Name)] = a.Value
 		}
 		name, err := ioutil.ReadAll(k)
 		if err != nil {
-			return err
+			return false, err
 		}
 		data[string(name)] = attrs
-		return nil
+		return false, nil
 	}); err != nil {
 		return nil, err
 	}
@@ -164,18 +164,18 @@ func (a *asset) FacetKeys() (map[string]RenditionAttrs, error) {
 }
 
 func (a *asset) BitmapKeys() error {
-	if err := a.bom.ReadTree("BITMAPKEYS", func(k io.Reader, d io.Reader) error {
+	if err := a.bom.ReadTree("BITMAPKEYS", func(k io.Reader, d io.Reader) (bool, error) {
 		// TODO: handle bitmapKeys
 		kk, err := ioutil.ReadAll(k)
 		if err != nil {
-			return err
+			return false, err
 		}
 		dd, err := ioutil.ReadAll(d)
 		if err != nil {
-			return err
+			return false, err
 		}
 		log.Printf("%v: %v", kk, dd)
-		return nil
+		return false, nil
 	}); err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (a *asset) Renditions(loop func(cb *RenditionCallback) (stop bool)) error {
 		return err
 	}
 
-	if err := a.bom.ReadTree("RENDITIONS", func(k io.Reader, d io.Reader) error {
+	if err := a.bom.ReadTree("RENDITIONS", func(k io.Reader, d io.Reader) (bool, error) {
 		attrs := RenditionAttrs{}
 		for i := 0; i < len(kf.RenditionKeyTokens); i++ {
 			v := uint16hex(0)
@@ -216,13 +216,13 @@ func (a *asset) Renditions(loop func(cb *RenditionCallback) (stop bool)) error {
 
 		c := &csiheader{}
 		if err := binary.Read(d, binary.LittleEndian, c); err != nil {
-			return err
+			return false, err
 		}
 
 		// TODO: skip TLV for now
 		tmp := make([]byte, c.Csibitmaplist.TvlLength)
 		if _, err := d.Read(tmp); err != nil {
-			return err
+			return false, err
 		}
 
 		// log.Printf("%s: %s: %s attrs: %+v TVL: %+v %v", c.Tag.String(), c.PixelFormat.String(), c.Csimetadata.Name.String(), attrs, c, len(tmp))
@@ -248,13 +248,13 @@ func (a *asset) Renditions(loop func(cb *RenditionCallback) (stop bool)) error {
 				cb.Err = err
 				stop := loop(cb)
 				if stop {
-					return err
+					return true, err
 				}
 			}
 			cb.Image = img
 			stop := loop(cb)
 			if stop {
-				return nil
+				return true, nil
 			}
 		case string([]byte{0, 0, 0, 0}):
 			switch c.Csimetadata.Layout {
@@ -265,14 +265,14 @@ func (a *asset) Renditions(loop func(cb *RenditionCallback) (stop bool)) error {
 				// TODO:
 				p := CUIThemeMultisizeImageSetRendition{}
 				if err := binary.Read(d, binary.LittleEndian, &p); err != nil {
-					return err
+					return false, err
 				}
 			}
 		default:
-			return fmt.Errorf("unknown rendition with pixel format: %v", c.PixelFormat.String())
+			return false, fmt.Errorf("unknown rendition with pixel format: %v", c.PixelFormat.String())
 		}
 
-		return nil
+		return false, nil
 	}); err != nil {
 		return err
 	}

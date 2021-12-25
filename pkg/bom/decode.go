@@ -23,7 +23,7 @@ type BomParser interface {
 	ReadBlock(name string) (io.Reader, error)
 
 	// read named tree block
-	ReadTree(name string, entry func(k io.Reader, d io.Reader) error) error
+	ReadTree(name string, entry func(k io.Reader, d io.Reader) (stop bool, err error)) error
 }
 
 type bom struct {
@@ -142,7 +142,7 @@ func (b *bom) blockReader(index uint32) (io.Reader, error) {
 }
 
 // Block: get tree block with name
-func (b *bom) ReadTree(name string, loop func(k io.Reader, d io.Reader) error) error {
+func (b *bom) ReadTree(name string, loop func(k io.Reader, d io.Reader) (stop bool, err error)) error {
 	for _, v := range b.vars {
 
 		if v.Name != name {
@@ -193,10 +193,10 @@ func (b *bom) ReadTree(name string, loop func(k io.Reader, d io.Reader) error) e
 			}
 			vbuf, err := b.blockReader(pi.ValueIndex)
 			if err != nil {
-				// return err
+				return err
 			}
 			// loop callback entry
-			if err := loop(kbuf, vbuf); err != nil {
+			if stop, err := loop(kbuf, vbuf); stop || err != nil {
 				return err
 			}
 		}

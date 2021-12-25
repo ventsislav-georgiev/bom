@@ -59,13 +59,13 @@ func TestParser(t *testing.T) {
 
 	keys := []string{}
 	tkeys := []string{"AppIcon", "test", "test2", "test3"}
-	if err := b.ReadTree("FACETKEYS", func(k io.Reader, d io.Reader) error {
+	if err := b.ReadTree("FACETKEYS", func(k io.Reader, d io.Reader) (bool, error) {
 		b, err := ioutil.ReadAll(k)
 		if err != nil {
-			return err
+			return false, err
 		}
 		keys = append(keys, string(b))
-		return nil
+		return false, nil
 	}); err != nil {
 		t.Fatal(err)
 	}
